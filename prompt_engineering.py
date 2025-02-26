@@ -62,14 +62,41 @@ class CodeGenerator:
         python_code = result['code']
         messages = result['description']
         
-        save_path = "generated_code.py"
+        # 원하는 폴더 경로 설정 (서버의 특정 폴더)
+        folder_path = "/root/generate_project"
+        
+        # 폴더가 존재하지 않으면 생성
+        if not os.path.exists(folder_path):
+            os.makedirs(folder_path)
 
-        # 생성된 Python 코드를 "generated_code.py" 파일에 저장
-        with open(save_path, "w", encoding="utf-8") as py_file:
+        # 기본 파일 이름
+        base_code_filename = "generated_code.py"
+        base_description_filename = "generated_description.json"
+        
+        # Python 코드 파일 경로
+        code_save_path = os.path.join(folder_path, base_code_filename)
+
+        # 설명 파일 경로
+        description_save_path = os.path.join(folder_path, base_description_filename)
+
+        # 코드 파일이 이미 존재하면 숫자 붙여서 새 이름 생성
+        counter = 1
+        while os.path.exists(code_save_path):
+            code_save_path = os.path.join(folder_path, f"generated_code_{counter}.py")
+            counter += 1
+
+        # 설명 파일이 이미 존재하면 숫자 붙여서 새 이름 생성
+        counter = 1
+        while os.path.exists(description_save_path):
+            description_save_path = os.path.join(folder_path, f"generated_description_{counter}.json")
+            counter += 1
+        
+        # 생성된 Python 코드를 지정된 폴더에 "generated_code.py" 파일로 저장
+        with open(code_save_path, "w", encoding="utf-8") as py_file:
             py_file.write(python_code)
         
-        # 생성된 설명 메시지를 "generated_description.json" 파일에 JSON 형식으로 저장
-        with open("generated_description.json", "w", encoding="utf-8") as json_file:
+        # 생성된 설명 메시지를 지정된 폴더에 "generated_description.json" 파일로 JSON 형식으로 저장
+        with open(description_save_path, "w", encoding="utf-8") as json_file:
             json.dump({"description": messages}, json_file, ensure_ascii=False, indent=2)
         
         # 생성된 코드와 설명을 콘솔에 출력
