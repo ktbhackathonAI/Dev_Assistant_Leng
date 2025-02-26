@@ -49,6 +49,35 @@ class CodeGenerator:
     """Python 코드 생성기 (RAG 미적용)"""
 
     @classmethod
+    # 비동기 함수: 코드 생성 실행 및 결과 파일 저장
+    async def run_code_generation(cls, request: CodeRequest):
+        """
+        코드 생성 요청을 실행하고,
+        생성된 Python 코드를 파일과 JSON 형식의 설명 파일로 저장하며 출력하는 함수.
+        """
+        # 비동기적으로 코드 생성 수행
+        result = await CodeGenerator.generate_code(request)
+        python_code = result['code']
+        messages = result['description']
+        
+        save_path = "generated_code.py"
+
+        # 생성된 Python 코드를 "generated_code.py" 파일에 저장
+        with open(save_path, "w", encoding="utf-8") as py_file:
+            py_file.write(python_code)
+        
+        # 생성된 설명 메시지를 "generated_description.json" 파일에 JSON 형식으로 저장
+        with open("generated_description.json", "w", encoding="utf-8") as json_file:
+            json.dump({"description": messages}, json_file, ensure_ascii=False, indent=2)
+        
+        # 생성된 코드와 설명을 콘솔에 출력
+        print("=== Python Code ===")
+        print(python_code)
+        print("\n=== Description ===")
+        print(messages)
+        return save_path, messages
+
+    @classmethod
     async def generate_code(cls, request: CodeRequest, model: str = "gemini-1.5-flash") -> dict:
         """
         비동기 방식으로 Gemini API를 호출하여 코드를 생성하는 함수.
@@ -234,39 +263,3 @@ class CodeGenerator:
         generated_code = response.content if hasattr(response, 'content') else "코드 수정 실패"
         cleaned_code = cls._remove_markdown_code_blocks(generated_code)
         return cleaned_code
-
-# 비동기 함수: 코드 생성 실행 및 결과 파일 저장
-async def run_code_generation():
-    """
-    코드 생성 요청을 실행하고,
-    생성된 Python 코드를 파일과 JSON 형식의 설명 파일로 저장하며 출력하는 함수.
-    """
-    # CodeRequest 인스턴스 생성 (요청 설명, 스타일, 주석 포함 여부, 코드 구조 지정)
-    request = CodeRequest(
-        description="Give me AND operation code using perceptron(deep learninig)",
-        style=CodeStyle.PEP8,
-        include_comments=True,
-        structure=CodeStructure.Functional
-    )
-    # 비동기적으로 코드 생성 수행
-    result = await CodeGenerator.generate_code(request)
-    python_code = result['code']
-    messages = result['description']
-    
-    # 생성된 Python 코드를 "generated_code.py" 파일에 저장
-    with open("generated_code.py", "w", encoding="utf-8") as py_file:
-        py_file.write(python_code)
-    
-    # 생성된 설명 메시지를 "generated_description.json" 파일에 JSON 형식으로 저장
-    with open("generated_description.json", "w", encoding="utf-8") as json_file:
-        json.dump({"description": messages}, json_file, ensure_ascii=False, indent=2)
-    
-    # 생성된 코드와 설명을 콘솔에 출력
-    print("=== Python Code ===")
-    print(python_code)
-    print("\n=== Description ===")
-    print(messages)
-    
-# 메인 실행부: 비동기 함수 실행
-if __name__ == "__main__":
-    asyncio.run(run_code_generation())

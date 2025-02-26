@@ -2,7 +2,7 @@ import logging
 import uvicorn
 
 from fastapi import FastAPI, HTTPException
-from create import CodeGenerator, CodeRequest
+from prompt_engineering import CodeGenerator, CodeRequest
 
 
 app = FastAPI(
@@ -16,8 +16,8 @@ app = FastAPI(
 async def generate_code_api(request: CodeRequest):
     """LangChain 기반 비동기 코드 생성 API"""
     try:
-        generated_code = await CodeGenerator.generate_code(request)
-        return {"generated_code": generated_code}
+        save_path, description = await CodeGenerator.run_code_generation(request)
+        return {"save_path": save_path, "description": description}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
