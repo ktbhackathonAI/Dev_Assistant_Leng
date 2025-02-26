@@ -61,7 +61,7 @@ class CodeGenerator:
         result = await CodeGenerator.generate_code(request)
         
         # 원하는 폴더 경로 설정 (서버의 특정 폴더)
-        base_folder_path = "/root/generate_projects"
+        base_folder_path = "/root/docker/generate_projects"
         
         # 폴더가 존재하지 않으면 생성
         if not os.path.exists(base_folder_path):
