@@ -112,7 +112,7 @@ class CodeGenerator:
         print(python_code)
         print("\n=== Description ===")
         print(messages)
-        return save_path, messages
+        return project_folder_path, messages
 
     @classmethod
     async def generate_code(cls, request: CodeRequest, model: str = "gemini-1.5-flash") -> dict:
