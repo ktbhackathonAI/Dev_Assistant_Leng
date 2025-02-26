@@ -227,15 +227,19 @@ class CodeGenerator:
             syntax_error = cls._check_syntax_error(code)
             # 실행하여 런타임 오류 검사 및 출력 캡쳐
             runtime_error, execution_output = cls._execute_and_capture_output(code)
+
             # 문법 및 런타임 오류가 없으면 수정된 코드를 반환
             if not syntax_error and not runtime_error:
                 return code
+            
             # 발생한 오류 메시지 생성
             error_message = f"Attempt {attempt+1} 오류 발생:\n"
             if syntax_error:
                 error_message += f"Syntax Error: {syntax_error}\n"
             if runtime_error:
                 error_message += f"Runtime Error: {runtime_error}\n"
+            
+            logging.warning(f"⚠️ {error_message.strip()}")
             error_messages.append(error_message)
             # 누적된 오류 메시지를 바탕으로 LLM에게 코드 수정 요청
             code = cls._fix_code_with_llm(code, error_messages)
@@ -264,19 +268,55 @@ class CodeGenerator:
         """
         captured_output = io.StringIO()
         captured_error = io.StringIO()
-        # 표준 출력과 표준 오류를 캡쳐하기 위해 StringIO 객체로 리디렉션
-        sys.stdout = captured_output
-        sys.stderr = captured_error
-        try:
-            exec(code, globals())
-            return None, captured_output.getvalue()
-        except Exception as e:
-            error_trace = traceback.format_exc()
-            return f"{e} {error_trace}", captured_output.getvalue()
-        finally:
-            # 표준 출력과 표준 오류를 원래 상태로 복원
-            sys.stdout = sys.__stdout__
-            sys.stderr = sys.__stderr__
+
+        sys.stdout = captured_output  # 표준 출력 리디렉션
+        sys.stderr = captured_error  # 표준 에러 리디렉션
+
+        logging.warning(f"코드 :  {code}")
+        
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            try:
+                exec(code, globals())  # 🔹 실행 환경을 실제 환경과 유사하게 설정
+                execution_output = captured_output.getvalue()
+                execution_error = captured_error.getvalue()
+
+                logging.warning("✅ 실행 완료, 출력 결과:\n" + execution_output)
+                if execution_error:
+                    logging.error("⚠️ 실행 중 오류 발생 (stderr):\n" + execution_error)
+
+                return None, captured_output.getvalue()  # 실행 오류 없음
+            except ValueError as ve:
+                error_traceback = traceback.format_exc()
+                logging.error(f"❌ [ValueError] {ve}\n{error_traceback}")
+                return f"[ValueError] {ve}\n{error_traceback}", captured_output.getvalue()
+            except TypeError as te:
+                error_traceback = traceback.format_exc()
+                logging.error(f"❌ [TypeError] {te}\n{error_traceback}")
+                return f"[TypeError] {te}\n{error_traceback}", captured_output.getvalue()
+            except IndexError as ie:
+                error_traceback = traceback.format_exc()
+                logging.error(f"❌ [IndexError] {ie}\n{error_traceback}")
+                return f"[IndexError] {ie}\n{error_traceback}", captured_output.getvalue()
+            except KeyError as ke:
+                error_traceback = traceback.format_exc()
+                logging.error(f"❌ [KeyError] {ke}\n{error_traceback}")
+                return f"[KeyError] {ke}\n{error_traceback}", captured_output.getvalue()
+            except ZeroDivisionError as zde:
+                error_traceback = traceback.format_exc()
+                logging.error(f"❌ [ZeroDivisionError] {zde}\n{error_traceback}")
+                return f"[ZeroDivisionError] {zde}\n{error_traceback}", captured_output.getvalue()
+            except Warning as w:
+                error_traceback = traceback.format_exc()
+                logging.error(f"⚠️ [Warning] {w}\n{error_traceback}")
+                return f"[Warning] {w}\n{error_traceback}", captured_output.getvalue()
+            except Exception as e:
+                error_traceback = traceback.format_exc()
+                logging.error(f"❌ [Unknown Error] {e}\n{error_traceback}")
+                return f"[Unknown Error] {e}\n{error_traceback}", captured_output.getvalue()
+            finally:
+                sys.stdout = sys.__stdout__  # 표준 출력 복원
+                sys.stderr = sys.__stderr__  # 표준 에러 복원
 
     @classmethod
     def _fix_code_with_llm(cls, code: str, error_messages: list) -> str:
