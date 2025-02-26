@@ -16,6 +16,8 @@ from langchain.prompts import PromptTemplate
 from langchain.schema import SystemMessage, HumanMessage, AIMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
 
+from rag import RAGRetriever
+
 # 환경 변수 로드 (예: API 키)
 load_dotenv()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
@@ -109,6 +111,9 @@ class CodeGenerator:
         """
         include_comments_text = "포함" if request.include_comments else "제외"
         structure_text = "함수형" if request.structure == CodeStructure.Functional else "클래스형"
+
+        rag_prompt = RAGRetriever.search_similar_terms(request.description)
+
         template = PromptTemplate(
             input_variables=["description", "style", "include_comments", "structure"],
             template="""
@@ -135,6 +140,10 @@ class CodeGenerator:
             예제 코드가 필요한 경우, Python 주석(#)을 사용하여 추가해야 해.
             불필요한 설명 없이 순수한 Python 코드만 출력해.
             백점 만점의 점수로 평가됩니다.
+
+            참고 사항
+            "{rag_prompt}"
+
             🎯 코드 생성 요청: 이제 Python 코드와 설명을 생성해. 설명은 한국어로 작성해야 해.
             "{description}"            
             """
@@ -144,7 +153,8 @@ class CodeGenerator:
             description=request.description,
             style=request.style.value,
             include_comments=include_comments_text,
-            structure=structure_text
+            structure=structure_text,
+            rag_prompt=rag_prompt
         )
 
     @staticmethod
