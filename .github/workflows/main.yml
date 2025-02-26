@@ -45,5 +45,5 @@ jobs:
             docker pull ${{ secrets.JARVIS_DOMAIN }}:5000/jarvis-ai
             docker stop jarvis-ai-container || true
             docker rm jarvis-ai-container || true
-            docker run -d --name jarvis-ai-container --restart=always -p 8000:8000 \
+            docker run -d --name jarvis-ai-container --restart=always -p 9000:9000 \
               ${{ secrets.JARVIS_DOMAIN }}:5000/jarvis-ai
