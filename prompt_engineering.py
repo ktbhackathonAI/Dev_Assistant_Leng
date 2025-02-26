@@ -16,7 +16,7 @@ from langchain.prompts import PromptTemplate
 from langchain.schema import SystemMessage, HumanMessage, AIMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
 
-from rag import RAGRetriever
+# from rag import RAGRetriever
 
 # 환경 변수 로드 (예: API 키)
 load_dotenv()
@@ -134,9 +134,9 @@ class CodeGenerator:
         # 응답을 코드 부분과 설명 부분으로 분리
         code_part, description_part = cls._split_response_content(full_response)
         # 코드 부분의 오류를 검증 및 수정
-        validated_code = cls._validate_and_fix_code_until_no_error(code_part)
+        # validated_code = cls._validate_and_fix_code_until_no_error(code_part)
         # 최종 코드와 설명을 딕셔너리 형태로 반환
-        return {"code": validated_code, "description": description_part.strip()}
+        return {"code": code_part, "description": description_part.strip()}
 
     @classmethod
     def _generate_prompt(cls, request: CodeRequest) -> str:
@@ -147,7 +147,7 @@ class CodeGenerator:
         include_comments_text = "포함" if request.include_comments else "제외"
         structure_text = "함수형" if request.structure == CodeStructure.Functional else "클래스형"
 
-        rag_prompt = RAGRetriever.search_similar_terms(request.description)
+        # rag_prompt = RAGRetriever.search_similar_terms(request.description)
 
         template = PromptTemplate(
             input_variables=["description", "style", "include_comments", "structure"],
@@ -176,9 +176,6 @@ class CodeGenerator:
             불필요한 설명 없이 순수한 Python 코드만 출력해.
             백점 만점의 점수로 평가됩니다.
 
-            참고 사항
-            "{rag_prompt}"
-
             🎯 코드 생성 요청: 이제 Python 코드와 설명을 생성해. 설명은 한국어로 작성해야 해.
             "{description}"            
             """
@@ -188,8 +185,8 @@ class CodeGenerator:
             description=request.description,
             style=request.style.value,
             include_comments=include_comments_text,
-            structure=structure_text,
-            rag_prompt=rag_prompt
+            structure=structure_text
+            # rag_prompt=rag_prompt
         )
 
     @staticmethod
@@ -215,136 +212,136 @@ class CodeGenerator:
         cleaned_code = re.sub(r"```\n?", "\n", cleaned_code)
         return cleaned_code.strip()
     
-    @classmethod
-    def _validate_and_fix_code_until_no_error(cls, code: str, max_attempts: int = 5) -> str:
-        """
-        코드가 오류 없이 실행될 때까지 반복적으로 검사 및 수정하는 함수.
-        최대 max_attempts 번 시도하며, 매 시도마다 발생한 오류 메시지를 누적하여 LLM을 통해 코드 수정 요청.
-        """
-        error_messages = []  # 이전 오류 메시지들을 저장하는 리스트
-        for attempt in range(max_attempts):
-            # 문법 오류 검사
-            syntax_error = cls._check_syntax_error(code)
-            # 실행하여 런타임 오류 검사 및 출력 캡쳐
-            runtime_error, execution_output = cls._execute_and_capture_output(code)
+    # @classmethod
+    # def _validate_and_fix_code_until_no_error(cls, code: str, max_attempts: int = 5) -> str:
+    #     """
+    #     코드가 오류 없이 실행될 때까지 반복적으로 검사 및 수정하는 함수.
+    #     최대 max_attempts 번 시도하며, 매 시도마다 발생한 오류 메시지를 누적하여 LLM을 통해 코드 수정 요청.
+    #     """
+    #     error_messages = []  # 이전 오류 메시지들을 저장하는 리스트
+    #     for attempt in range(max_attempts):
+    #         # 문법 오류 검사
+    #         syntax_error = cls._check_syntax_error(code)
+    #         # 실행하여 런타임 오류 검사 및 출력 캡쳐
+    #         runtime_error, execution_output = cls._execute_and_capture_output(code)
 
-            # 문법 및 런타임 오류가 없으면 수정된 코드를 반환
-            if not syntax_error and not runtime_error:
-                return code
+    #         # 문법 및 런타임 오류가 없으면 수정된 코드를 반환
+    #         if not syntax_error and not runtime_error:
+    #             return code
             
-            # 발생한 오류 메시지 생성
-            error_message = f"Attempt {attempt+1} 오류 발생:\n"
-            if syntax_error:
-                error_message += f"Syntax Error: {syntax_error}\n"
-            if runtime_error:
-                error_message += f"Runtime Error: {runtime_error}\n"
+    #         # 발생한 오류 메시지 생성
+    #         error_message = f"Attempt {attempt+1} 오류 발생:\n"
+    #         if syntax_error:
+    #             error_message += f"Syntax Error: {syntax_error}\n"
+    #         if runtime_error:
+    #             error_message += f"Runtime Error: {runtime_error}\n"
             
-            logging.warning(f"⚠️ {error_message.strip()}")
-            error_messages.append(error_message)
-            # 누적된 오류 메시지를 바탕으로 LLM에게 코드 수정 요청
-            code = cls._fix_code_with_llm(code, error_messages)
-        # 최대 시도 횟수를 초과하면 실패 메시지 반환
-        return "코드 수정 실패"
+    #         logging.warning(f"⚠️ {error_message.strip()}")
+    #         error_messages.append(error_message)
+    #         # 누적된 오류 메시지를 바탕으로 LLM에게 코드 수정 요청
+    #         code = cls._fix_code_with_llm(code, error_messages)
+    #     # 최대 시도 횟수를 초과하면 실패 메시지 반환
+    #     return "코드 수정 실패"
 
-    @staticmethod
-    def _check_syntax_error(code: str) -> str:
-        """
-        Python 코드의 문법 오류(SyntaxError)를 검사하는 함수.
-        - 오류가 없으면 None을 반환
-        - 오류가 발생하면 오류 메시지를 반환
-        """
-        try:
-            ast.parse(code)
-            return None
-        except SyntaxError as e:
-            return f"{e.msg} (라인: {e.lineno}, 컬럼: {e.offset})"
+    # @staticmethod
+    # def _check_syntax_error(code: str) -> str:
+    #     """
+    #     Python 코드의 문법 오류(SyntaxError)를 검사하는 함수.
+    #     - 오류가 없으면 None을 반환
+    #     - 오류가 발생하면 오류 메시지를 반환
+    #     """
+    #     try:
+    #         ast.parse(code)
+    #         return None
+    #     except SyntaxError as e:
+    #         return f"{e.msg} (라인: {e.lineno}, 컬럼: {e.offset})"
 
-    @staticmethod
-    def _execute_and_capture_output(code: str) -> tuple:
-        """
-        코드를 실행하여 실행 중 발생하는 오류와 출력 결과를 캡쳐하는 함수.
-        - 정상 실행 시: (None, 출력 결과)를 반환
-        - 오류 발생 시: (오류 메시지, 출력 결과)를 반환
-        """
-        captured_output = io.StringIO()
-        captured_error = io.StringIO()
+    # @staticmethod
+    # def _execute_and_capture_output(code: str) -> tuple:
+    #     """
+    #     코드를 실행하여 실행 중 발생하는 오류와 출력 결과를 캡쳐하는 함수.
+    #     - 정상 실행 시: (None, 출력 결과)를 반환
+    #     - 오류 발생 시: (오류 메시지, 출력 결과)를 반환
+    #     """
+    #     captured_output = io.StringIO()
+    #     captured_error = io.StringIO()
 
-        sys.stdout = captured_output  # 표준 출력 리디렉션
-        sys.stderr = captured_error  # 표준 에러 리디렉션
+    #     sys.stdout = captured_output  # 표준 출력 리디렉션
+    #     sys.stderr = captured_error  # 표준 에러 리디렉션
 
-        logging.warning(f"코드 :  {code}")
+    #     logging.warning(f"코드 :  {code}")
         
-        with warnings.catch_warnings():
-            warnings.simplefilter("error")
-            try:
-                exec(code, globals())  # 🔹 실행 환경을 실제 환경과 유사하게 설정
-                execution_output = captured_output.getvalue()
-                execution_error = captured_error.getvalue()
+    #     with warnings.catch_warnings():
+    #         warnings.simplefilter("error")
+    #         try:
+    #             exec(code, globals())  # 🔹 실행 환경을 실제 환경과 유사하게 설정
+    #             execution_output = captured_output.getvalue()
+    #             execution_error = captured_error.getvalue()
 
-                logging.warning("✅ 실행 완료, 출력 결과:\n" + execution_output)
-                if execution_error:
-                    logging.error("⚠️ 실행 중 오류 발생 (stderr):\n" + execution_error)
+    #             logging.warning("✅ 실행 완료, 출력 결과:\n" + execution_output)
+    #             if execution_error:
+    #                 logging.error("⚠️ 실행 중 오류 발생 (stderr):\n" + execution_error)
 
-                return None, captured_output.getvalue()  # 실행 오류 없음
-            except ValueError as ve:
-                error_traceback = traceback.format_exc()
-                logging.error(f"❌ [ValueError] {ve}\n{error_traceback}")
-                return f"[ValueError] {ve}\n{error_traceback}", captured_output.getvalue()
-            except TypeError as te:
-                error_traceback = traceback.format_exc()
-                logging.error(f"❌ [TypeError] {te}\n{error_traceback}")
-                return f"[TypeError] {te}\n{error_traceback}", captured_output.getvalue()
-            except IndexError as ie:
-                error_traceback = traceback.format_exc()
-                logging.error(f"❌ [IndexError] {ie}\n{error_traceback}")
-                return f"[IndexError] {ie}\n{error_traceback}", captured_output.getvalue()
-            except KeyError as ke:
-                error_traceback = traceback.format_exc()
-                logging.error(f"❌ [KeyError] {ke}\n{error_traceback}")
-                return f"[KeyError] {ke}\n{error_traceback}", captured_output.getvalue()
-            except ZeroDivisionError as zde:
-                error_traceback = traceback.format_exc()
-                logging.error(f"❌ [ZeroDivisionError] {zde}\n{error_traceback}")
-                return f"[ZeroDivisionError] {zde}\n{error_traceback}", captured_output.getvalue()
-            except Warning as w:
-                error_traceback = traceback.format_exc()
-                logging.error(f"⚠️ [Warning] {w}\n{error_traceback}")
-                return f"[Warning] {w}\n{error_traceback}", captured_output.getvalue()
-            except Exception as e:
-                error_traceback = traceback.format_exc()
-                logging.error(f"❌ [Unknown Error] {e}\n{error_traceback}")
-                return f"[Unknown Error] {e}\n{error_traceback}", captured_output.getvalue()
-            finally:
-                sys.stdout = sys.__stdout__  # 표준 출력 복원
-                sys.stderr = sys.__stderr__  # 표준 에러 복원
+    #             return None, captured_output.getvalue()  # 실행 오류 없음
+    #         except ValueError as ve:
+    #             error_traceback = traceback.format_exc()
+    #             logging.error(f"❌ [ValueError] {ve}\n{error_traceback}")
+    #             return f"[ValueError] {ve}\n{error_traceback}", captured_output.getvalue()
+    #         except TypeError as te:
+    #             error_traceback = traceback.format_exc()
+    #             logging.error(f"❌ [TypeError] {te}\n{error_traceback}")
+    #             return f"[TypeError] {te}\n{error_traceback}", captured_output.getvalue()
+    #         except IndexError as ie:
+    #             error_traceback = traceback.format_exc()
+    #             logging.error(f"❌ [IndexError] {ie}\n{error_traceback}")
+    #             return f"[IndexError] {ie}\n{error_traceback}", captured_output.getvalue()
+    #         except KeyError as ke:
+    #             error_traceback = traceback.format_exc()
+    #             logging.error(f"❌ [KeyError] {ke}\n{error_traceback}")
+    #             return f"[KeyError] {ke}\n{error_traceback}", captured_output.getvalue()
+    #         except ZeroDivisionError as zde:
+    #             error_traceback = traceback.format_exc()
+    #             logging.error(f"❌ [ZeroDivisionError] {zde}\n{error_traceback}")
+    #             return f"[ZeroDivisionError] {zde}\n{error_traceback}", captured_output.getvalue()
+    #         except Warning as w:
+    #             error_traceback = traceback.format_exc()
+    #             logging.error(f"⚠️ [Warning] {w}\n{error_traceback}")
+    #             return f"[Warning] {w}\n{error_traceback}", captured_output.getvalue()
+    #         except Exception as e:
+    #             error_traceback = traceback.format_exc()
+    #             logging.error(f"❌ [Unknown Error] {e}\n{error_traceback}")
+    #             return f"[Unknown Error] {e}\n{error_traceback}", captured_output.getvalue()
+    #         finally:
+    #             sys.stdout = sys.__stdout__  # 표준 출력 복원
+    #             sys.stderr = sys.__stderr__  # 표준 에러 복원
 
-    @classmethod
-    def _fix_code_with_llm(cls, code: str, error_messages: list) -> str:
-        """
-        누적된 오류 메시지를 기반으로 LLM에게 코드 수정 요청을 하는 함수.
-        - LLM 응답에서 마크다운 코드 블록을 제거하여 수정된 코드를 반환함.
-        """
-        error_context = "\n".join(error_messages)
-        prompt = f"""
-        ### Python 코드 오류 수정 요청
-        아래 코드에서 문법 및 실행 오류를 수정해줘.
+    # @classmethod
+    # def _fix_code_with_llm(cls, code: str, error_messages: list) -> str:
+    #     """
+    #     누적된 오류 메시지를 기반으로 LLM에게 코드 수정 요청을 하는 함수.
+    #     - LLM 응답에서 마크다운 코드 블록을 제거하여 수정된 코드를 반환함.
+    #     """
+    #     error_context = "\n".join(error_messages)
+    #     prompt = f"""
+    #     ### Python 코드 오류 수정 요청
+    #     아래 코드에서 문법 및 실행 오류를 수정해줘.
 
-        ### 수정 목표:
-        1. 코드가 실행될 때 문법 오류(SyntaxError)가 발생하지 않아야 함.
-        2. 실행 중 RuntimeError가 발생하지 않아야 함.
-        3. 기존 코드의 논리 구조를 최대한 유지하면서 오류를 해결할 것.
+    #     ### 수정 목표:
+    #     1. 코드가 실행될 때 문법 오류(SyntaxError)가 발생하지 않아야 함.
+    #     2. 실행 중 RuntimeError가 발생하지 않아야 함.
+    #     3. 기존 코드의 논리 구조를 최대한 유지하면서 오류를 해결할 것.
 
-        ### 출력 형식 요구사항:
-        - 출력된 코드는 실행 가능한 순수한 Python 코드여야 하며, 불필요한 텍스트가 없어야 함.
+    #     ### 출력 형식 요구사항:
+    #     - 출력된 코드는 실행 가능한 순수한 Python 코드여야 하며, 불필요한 텍스트가 없어야 함.
 
-        ### 이전 오류 메시지:
-        {error_context}
+    #     ### 이전 오류 메시지:
+    #     {error_context}
 
-        ### 코드 수정 요청:
-        ```python
-        {code}
-        """
-        response = llm.invoke(prompt)
-        generated_code = response.content if hasattr(response, 'content') else "코드 수정 실패"
-        cleaned_code = cls._remove_markdown_code_blocks(generated_code)
-        return cleaned_code
+    #     ### 코드 수정 요청:
+    #     ```python
+    #     {code}
+    #     """
+    #     response = llm.invoke(prompt)
+    #     generated_code = response.content if hasattr(response, 'content') else "코드 수정 실패"
+    #     cleaned_code = cls._remove_markdown_code_blocks(generated_code)
+    #     return cleaned_code
