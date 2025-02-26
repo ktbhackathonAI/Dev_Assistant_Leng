@@ -16,8 +16,8 @@ app = FastAPI(
 async def generate_code_api(request: CodeRequest):
     """LangChain 기반 비동기 코드 생성 API"""
     try:
-        save_path, description = await CodeGenerator.run_code_generation(request)
-        return {"save_path": save_path, "description": description}
+        save_path = await CodeGenerator.run_code_generation(request)
+        return {"save_path": save_path}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
