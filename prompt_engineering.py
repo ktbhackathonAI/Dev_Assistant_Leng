@@ -63,32 +63,40 @@ class CodeGenerator:
         messages = result['description']
         
         # 원하는 폴더 경로 설정 (서버의 특정 폴더)
-        folder_path = "/root/generate_project"
+        base_folder_path = "/root/generate_projects"
         
         # 폴더가 존재하지 않으면 생성
-        if not os.path.exists(folder_path):
-            os.makedirs(folder_path)
+        if not os.path.exists(base_folder_path):
+            os.makedirs(base_folder_path)
+
+        # 프로젝트 폴더 개수 확인 후 새로운 프로젝트 폴더 번호 할당
+        existing_projects = [name for name in os.listdir(base_folder_path) if os.path.isdir(os.path.join(base_folder_path, name))]
+        project_counter = len(existing_projects) + 1
+        project_folder_path = os.path.join(base_folder_path, f"project{project_counter}")
+
+        # 새 프로젝트 폴더 생성
+        os.makedirs(project_folder_path)
 
         # 기본 파일 이름
         base_code_filename = "generated_code.py"
         base_description_filename = "generated_description.json"
         
         # Python 코드 파일 경로
-        code_save_path = os.path.join(folder_path, base_code_filename)
+        code_save_path = os.path.join(project_folder_path, base_code_filename)
 
         # 설명 파일 경로
-        description_save_path = os.path.join(folder_path, base_description_filename)
+        description_save_path = os.path.join(project_folder_path, base_description_filename)
 
         # 코드 파일이 이미 존재하면 숫자 붙여서 새 이름 생성
         counter = 1
         while os.path.exists(code_save_path):
-            code_save_path = os.path.join(folder_path, f"generated_code_{counter}.py")
+            code_save_path = os.path.join(project_folder_path, f"generated_code_{counter}.py")
             counter += 1
 
         # 설명 파일이 이미 존재하면 숫자 붙여서 새 이름 생성
         counter = 1
         while os.path.exists(description_save_path):
-            description_save_path = os.path.join(folder_path, f"generated_description_{counter}.json")
+            description_save_path = os.path.join(project_folder_path, f"generated_description_{counter}.json")
             counter += 1
         
         # 생성된 Python 코드를 지정된 폴더에 "generated_code.py" 파일로 저장
