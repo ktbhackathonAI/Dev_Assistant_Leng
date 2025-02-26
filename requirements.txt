@@ -5,8 +5,8 @@ langchain
 langchain-community
 langchain-google-genai
 python-dotenv
-psycopg2
-mariadb
+# psycopg2
+# mariadb
 faiss-cpu
 sentence-transformers
 requests
