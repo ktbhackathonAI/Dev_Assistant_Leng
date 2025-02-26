@@ -59,6 +59,7 @@ class CodeGenerator:
         """
         # 비동기적으로 코드 생성 수행
         result = await CodeGenerator.generate_code(request)
+        print(result)
         
         # 원하는 폴더 경로 설정 (서버의 특정 폴더)
         base_folder_path = "/root/docker/generate_projects"
@@ -168,10 +169,11 @@ class CodeGenerator:
             사용자가 요청한 대로 코드가 올바르게 실행될 수 있도록 코드를 작성해야 해.
 
             🛠️ 필수 요구 사항
+            사용자 입력에 배포 프레임워크가 특정되어 있지 않으면 FastAPI를 사용해야 해.
+            배포를 위한 프로젝트 폴더 구조를 명확하게 설계해야 해.
             Python 문법 오류(SyntaxError)가 없어야 해.
             실행 시 런타임 오류(RuntimeError)가 발생하지 않아야 해.
             각 파일 별 기능을 참조할 시 오류(ImportError)가 발생하지 않아야 해.
-            사용자 입력에 배포 프레임워크가 특정되어 있지 않으면 기본값으로 FastAPI를 사용해서 배포해야 해.
             코드의 논리는 정확해야 하며, 예상된 출력이 나와야 해.
 
             🎨 코드 스타일 & 구조
