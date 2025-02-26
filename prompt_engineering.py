@@ -1,19 +1,12 @@
 import os
 import re
-import io
-import sys
-import ast
 import logging
 import asyncio
-import warnings
-import traceback
-import json  
 
 from enum import Enum
 from dotenv import load_dotenv
 from pydantic import BaseModel
 from langchain.prompts import PromptTemplate
-from langchain.schema import SystemMessage, HumanMessage, AIMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
 
 # from rag import RAGRetriever
@@ -60,6 +53,9 @@ class CodeGenerator:
         # 비동기적으로 코드 생성 수행
         result = await CodeGenerator.generate_code(request)
         print(result)
+
+        code_text, readme_text = result.split("---")
+        readme_text = readme_text.strip()
         
         # 원하는 폴더 경로 설정 (서버의 특정 폴더)
         base_folder_path = "/root/docker/generate_projects"
@@ -79,8 +75,7 @@ class CodeGenerator:
         
         # 마크다운 블록을 파싱하여 파일별로 저장
         md_pattern = re.compile(r"```(?:python)?\s*(.*?)\s*```", re.DOTALL)
-        files_text = md_pattern.findall(result)
-        description_text = re.sub(md_pattern, "", result).strip()
+        files_text = md_pattern.findall(code_text)
 
         # print(files_text)
         # 파일 저장
@@ -104,11 +99,11 @@ class CodeGenerator:
         
         
         # Description 파일 경로
-        description_save_path = os.path.join(project_folder_path, 'description.json')
+        readme_save_path = os.path.join(project_folder_path, 'README.md')
 
-        # 생성된 설명 메시지를 지정된 폴더에 "generated_description.json" 파일로 JSON 형식으로 저장
-        with open(description_save_path, "w", encoding="utf-8") as json_file:
-            json.dump({"description": description_text}, json_file, ensure_ascii=False, indent=2)
+        # 생성된 설명 메시지를 지정된 폴더에 md 형식으로 저장
+        with open(readme_save_path, "w", encoding="utf-8") as md_file:
+            md_file.write(readme_text)
 
         return project_folder_path
 
@@ -159,22 +154,43 @@ class CodeGenerator:
             작업 순서
             1️⃣ **프로젝트 폴더 구조 설계**
                 - root 디렉토리를 기반으로 해당 기능을 배포할 수 있는 전체 코드 구조를 우선적으로 설계해야 해.
-                - 프로젝트 폴더 구조는 출력하지 않아야 해.
+                - 설계된 프로젝트 폴더 구조는 가장 먼저 출력해야 해.
             2️⃣ **각 파일 별 코드 구현**
                 - 각 파일에 해당하는 기능의 코드를 구현해야 해.
-                - 파일 별로 markdown 코드 블록(```python ... ```) 안에 파일 경로, 코드 구조를 출력해야 해(requirements.txt 파일 포함).
+                - 파일 별로 markdown 코드 블록(```python ... ```) 안에 파일 경로, 코드 구조를 출력해야 해.
+                - Python 코드 뿐 만 아니라 배포에 필요한 환경 설정 파일(requirements.txt 등)도 명확하게 출력해야 해.
+            3️⃣ **실행 순서에 따른 코드 설명**
                 - 전체 코드 구조 출력이 끝난 후에 **코드 설명**을 출력해야 해.
+                - 코드 설명은 **파일 별 설명**과 **배포 작업 순서 설명**으로 구성해야 해.
+                - **배포 작업 순서 설명**을 순서대로 진행하면 정확한 기능이 배포되어야 해.
+            
 
             이 부분은 매우 중요해. Python 코드를 줄 때 반드시 이 형식을 지켜야 해!!!
             사용자가 요청한 대로 코드가 올바르게 실행될 수 있도록 코드를 작성해야 해.
 
-            🛠️ 필수 요구 사항
-            사용자 입력에 배포 프레임워크가 특정되어 있지 않으면 FastAPI를 사용해야 해.
-            프로젝트 폴더 구조가 배포 과정을 전부 소화할 수 있도록 꼼꼼하고 명확하게 설계해야 해.
+            🛠️ 필수 요구 사항(설계)
+            사용자 입력에 배포 프레임워크가 특정되어 있지 않으면 **FastAPI**를 활용한 폴더 구조를 설계해야 해.
+            사용자 입력에 DB 프레임워크가 특정되어 있지 않으면 **SQLite**를 활용한 DB를 설계해야 해. SQLAlchemy는 사용하면 안돼.
+            requirements.txt 작성 시 버전 충돌로 인한 오류(AssertionError)가 발생하지 않도록 정확하게 작성해야 해.
+            requirements.txt 미완성으로 인한 참조 오류(ImportError)가 발생하지 않도록 정확하게 작성해야 해.
+            프로젝트 폴더 구조가 배포 과정을 전부 소화할 수 있도록 프로젝트 폴더 구조를 꼼꼼하고 명확하게 설계해야 해.
+            전체 배포 과정이 터미널만 사용해서 이루어질 수 있도록 설계해야 해.
+            
+            🛠️ 필수 요구 사항(코드)
             Python 문법 오류(SyntaxError)가 없어야 해.
             실행 시 런타임 오류(RuntimeError)가 발생하지 않아야 해.
-            각 파일 별 기능을 참조할 시 오류(ImportError)가 발생하지 않아야 해.
-            코드의 논리는 정확해야 하며, 예상된 출력이 나와야 해.
+            각 파일 별 기능을 참조할 시 오류(ImportError, ModuleNotFoundError)가 발생하지 않아야 해.
+            정확한 라이브러리 명을 참조해서 오류(ImportError, ModuleNotFoundError)가 발생하지 않아야 해.
+            클래스 매서드와 인스턴스 매서드의 차이를 명확히 인지하고 오류가 발생하지 않게 사용해야 해.
+            코드의 논리는 정확해야 하며, 기능은 완벽히 작동해야 해.
+            End 사용자가 바로 사용할 수 있도록 배포 해줘야 해.
+            백점 만점의 답변을 제공해줘야 해.
+
+            🛠️ 필수 요구 사항(배포)
+            비동기 함수 사용 시 통신 과정에서 오류가 발생하지 않아야 해.
+            통신 과정에서의 입력, 출력 형식이 정확하게 정의되어서 오류가 발생하지 않아야 해. 예를 들어 CRUD 기능을 구현할 때 각각의 입력과 출력이 오류가 발생하지 않게 정의되어야 해.
+            Pydantic Basemodel을 활용하여 배포 과정에서의 입력을 명확하게 표기해주어야 해.
+
 
             🎨 코드 스타일 & 구조
             코드 스타일: {style}
@@ -182,7 +198,42 @@ class CodeGenerator:
             코드 구조: {structure}
 
             📌 📢 중요한 출력 형식 요구 사항
-            백점 만점의 답변을 제공해줘야 해.
+            아래 출력 형식을 반드시 따라야 해.
+            출력 형식의 markdown 코드 블록을 반드시 따라야 해.
+            대괄호 안에 있는 변수를 각 출력으로 채워야 해.
+            배포 작업 순서에 폴더를 구축하는 내용은 들어가면 안돼. 그 이후부터 작성해야 해.
+            파일 이름에는 설명이 붙지 않아야 해.
+
+            **출력 형식**            
+            ```python
+            # [파일 이름]
+
+            [코드]
+            ```
+
+
+            ```python
+            # [파일 이름]
+
+            [코드]
+            ```
+
+            ---
+
+            # [프로젝트 이름]
+            [간략한 프로젝트 설명]
+
+            ## 폴더 구조
+            [폴더 구조]
+
+            ## 파일 별 설명
+            - [파일 이름] : [파일 설명]
+            - [파일 이름] : [파일 설명]
+            
+
+            ## 배포 작업 순서 설명
+            1. [작업 설명]
+            2. [작업 설명]
 
             🎯 코드 생성 요청: 이제 Python 코드와 설명을 생성해. 설명은 한국어로 작성해야 해.
             """
