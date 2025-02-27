@@ -152,7 +152,7 @@ class CodeGenerator:
         
         message_history += request.new_message.role + " : " + request.new_message.content + "\n\n"
 
-        rag_prompt = RAGRetriever.search_similar_terms(message_history, top_k=1, type='json')
+        rag_prompt = RAGRetriever.search_similar_terms(message_history)
 
         template = PromptTemplate(
             input_variables=["message_history", "rag_prompt"],
@@ -228,7 +228,7 @@ class CodeGenerator:
             Python 문법 오류(SyntaxError)가 없어야 해.
             실행 시 런타임 오류(RuntimeError)가 발생하지 않아야 해.
             각 파일 별 기능을 참조할 시 오류(ImportError, ModuleNotFoundError)가 발생하지 않아야 해.
-            복잡한 폴더 구조의 파일 기능을 참조할 시(예시: from 폴더.파일 import 기능) 오류(ImportError, ModuleNotFoundError)가 발생하지 않아야 해.
+            복잡한 폴더 구조의 파일 기능을 참조할 시(예시: from 폴더.파일 import 모듈) 파일 이름까지 정확하게 기입해서 오류(ImportError, ModuleNotFoundError)가 발생하지 않아야 해.
             정확한 라이브러리 명을 참조해서 오류(ImportError, ModuleNotFoundError)가 발생하지 않아야 해.
             클래스 매서드와 인스턴스 매서드의 차이를 명확히 인지하고 오류가 발생하지 않게 사용해야 해.
             코드의 논리는 정확해야 하며, 기능은 완벽히 작동해야 해.
@@ -248,17 +248,7 @@ class CodeGenerator:
             # FastAPI
             
             ```
-            app/
-            │── main.py              # FastAPI 앱 실행
-            │── requirements.txt     # 필요한 패키지 목록
-            │
-            ├── routers/             # 라우터(API 엔드포인트) 폴더
-            │   ├── users.py         # 사용자 관련 API
-            │   ├── items.py         # 아이템 관련 API
-            │
-            └── models/              # Pydantic 모델 정의 폴더
-                ├── user_model.py    # 사용자 데이터 모델
-                ├── item_model.py    # 아이템 데이터 모델
+            {rag_prompt}
             ```
 
             
@@ -307,5 +297,5 @@ class CodeGenerator:
         # 템플릿에 요청 정보를 채워 최종 프롬프트 생성
         return template.format(
             message_history=message_history,
-            rag_prompt=rag_prompt[0]
+            rag_prompt=rag_prompt
         )
