@@ -56,19 +56,19 @@ class CodeGenerator:
         """
         # 비동기적으로 코드 생성 수행
         result = await CodeGenerator.generate_code(request)
-        print(result)
+        # print(result)
 
         code_text, readme_text = result.split("---")
         readme_text = readme_text.strip()
 
         if '불가능' in code_text:
             return "Sub_question", readme_text
-        
+
         # 원하는 폴더 경로 설정 (서버의 특정 폴더)
         base_folder_path = "/root/docker/generate_projects"
 
         folder_list = []
-        
+
         # 폴더가 존재하지 않으면 생성
         if not os.path.exists(base_folder_path):
             os.makedirs(base_folder_path)
@@ -81,7 +81,7 @@ class CodeGenerator:
         # 새 프로젝트 폴더 생성
         os.makedirs(project_folder_path)
 
-        
+
         # 마크다운 블록을 파싱하여 파일별로 저장
         md_pattern = re.compile(r"```(?:python)?\s*(.*?)\s*```", re.DOTALL)
         files_text = md_pattern.findall(code_text)
@@ -93,7 +93,7 @@ class CodeGenerator:
             code_match = re.search(name_pattern, file_text)
 
             content, filename = code_match.group(0), code_match.group(1)
-           
+
             # Python 코드 파일 경로
             code_save_path = os.path.join(project_folder_path, filename)
             directory = os.path.dirname(code_save_path)  # 폴더 경로만 추출
@@ -101,13 +101,13 @@ class CodeGenerator:
             # 🔹 폴더가 없으면 생성 (이미 존재하면 무시)
             if directory and not os.path.exists(directory):
                 os.makedirs(directory, exist_ok=True)
-                
+
             folder_list.append(code_save_path)
             # 생성된 Python 코드를 지정된 폴더에 "generated_code.py" 파일로 저장
             with open(code_save_path, "w", encoding="utf-8") as py_file:
                 py_file.write(content)
-        
-        
+
+
         # Description 파일 경로
         readme_save_path = os.path.join(project_folder_path, 'README.md')
 
@@ -149,8 +149,8 @@ class CodeGenerator:
 
         for message_hist in request.message_history:
             content, sender, created_at = message_hist
-            message_history += sender + " : " + content + "\n"
-        
+            message_history += sender[1] + " : " + content[1] + "\n"
+
         message_history += request.new_message.role + " : " + request.new_message.content + "\n"
 
 
@@ -184,7 +184,7 @@ class CodeGenerator:
                 [사용자에게 제공할 추가 질문 출력]
                 ```
 
-            
+
             **기능 구현**
             기능을 구현하기 위해 아래 작업 순서를 반드시 따라야 해.
 
@@ -200,13 +200,13 @@ class CodeGenerator:
                 - 전체 코드 구조 출력이 끝난 후에 **코드 설명**을 출력해야 해.
                 - 코드 설명은 **파일 별 설명**과 **배포 작업 순서 설명**으로 구성해야 해.
                 - **배포 작업 순서 설명**을 순서대로 진행하면 정확한 기능이 배포되어야 해.
-            
+
 
             이 부분은 매우 중요해. Python 코드를 줄 때 반드시 이 형식을 지켜야 해!!!
             사용자가 요청한 대로 코드가 올바르게 실행될 수 있도록 코드를 작성해야 해.
-            
+
             🛠️ 필수 요구 사항(일관성)
-            동일한 사용자 입력에 대해 항상 동일한 코드와 설명을 출력해야 해.  
+            동일한 사용자 입력에 대해 항상 동일한 코드와 설명을 출력해야 해.
             무작위성이 개입되지 않도록 결정론적으로 작성해야 해.
 
             🛠️ 필수 요구 사항(정확성)
@@ -221,7 +221,7 @@ class CodeGenerator:
             requirements.txt 미완성으로 인한 참조 오류(ImportError)가 발생하지 않도록 정확하게 작성해야 해.
             프로젝트 폴더 구조가 배포 과정을 전부 소화할 수 있도록 프로젝트 폴더 구조를 꼼꼼하고 명확하게 설계해야 해.
             전체 배포 과정이 터미널만 사용해서 이루어질 수 있도록 설계해야 해.
-            
+
             🛠️ 필수 요구 사항(코드)
             PEP8 스타일로 작성해야 해.
             Python 문법 오류(SyntaxError)가 없어야 해.
@@ -245,7 +245,7 @@ class CodeGenerator:
             배포 작업 순서에 폴더를 구축하는 내용은 들어가면 안돼. 그 이후부터 작성해야 해.
             파일 이름에는 설명이 붙지 않아야 해.
 
-            **출력 형식**            
+            **출력 형식**
             ```python
             # [파일 이름]
             [코드]
@@ -272,7 +272,7 @@ class CodeGenerator:
             ## 파일 별 설명
             - [파일 이름] : [파일 설명]
             - [파일 이름] : [파일 설명]
-            
+
 
             ## 배포 작업 순서 설명
             1. [작업 설명]
