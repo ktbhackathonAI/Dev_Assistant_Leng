@@ -19,7 +19,7 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 logging.basicConfig(level=logging.ERROR)
 
 # LangChain LLM (Gemini 모델) 초기화
-llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", google_api_key=GEMINI_API_KEY)
+llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", google_api_key=GEMINI_API_KEY, temperature=0.3)
 
 # 코드 스타일 옵션 정의 (PEP8, Google, NoneStyle)
 class CodeStyle(str, Enum):
@@ -56,6 +56,9 @@ class CodeGenerator:
 
         code_text, readme_text = result.split("---")
         readme_text = readme_text.strip()
+
+        if '불가능' in code_text:
+            return "Sub_question", readme_text
         
         # 원하는 폴더 경로 설정 (서버의 특정 폴더)
         base_folder_path = "/root/docker/generate_projects"
@@ -105,7 +108,7 @@ class CodeGenerator:
         with open(readme_save_path, "w", encoding="utf-8") as md_file:
             md_file.write(readme_text)
 
-        return project_folder_path
+        return "project_path", project_folder_path
 
     @classmethod
     async def generate_code(cls, request: CodeRequest, model: str = "gemini-1.5-flash") -> dict:
@@ -125,9 +128,6 @@ class CodeGenerator:
         # LLM의 응답에서 content를 추출 (없으면 "코드 생성 실패" 메시지)
         full_response = response.content if hasattr(response, 'content') else "코드 생성 실패"
         return full_response
-        # 응답을 코드 부분과 설명 부분으로 분리
-        # code_part, description_part = cls._split_response_content(full_response)
-        # return {"code": code_part, "description": description_part.strip()}
 
     @classmethod
     def _generate_prompt(cls, request: CodeRequest) -> str:
@@ -149,10 +149,29 @@ class CodeGenerator:
             사용자 입력:
             "{description}"
 
+            작업 가능 여부 판단
+            사용자 입력이 개발 기능을 구체적으로 설명하는 지 판단해서 답변해야 해. Case에 맞게 답변 양식을 정확히 따라야 해.
+            Case 1️⃣ **기능을 구체적으로 설명하는 경우**
+                - 사용자 입력이 개발하고자 하는 명확한 기능을 포함하고 있어야 해.
+                - 직관적인 기능의 MVP를 개발 가능한 입력이여야 해.
+                - **답변 양식**
+                ```
+                [하단의 기능 구현 내용 출력]
+                ```
+            Case 2️⃣ **기능울 구체적으로 설명하지 않는 경우**
+                - 사용자 입력만으로 개발하고자 하는 명확한 기능을 판단할 수 없어야 해.
+                - 기능을 개발하는 동안 사용자에게 추가 질문이 필요한 경우여야 해.
+                - 추가 질문은 3개 이내의 선택지 제공을 통해 진행해야해.
+                - **답변 양식**
+                ```
+                # 개발 불가능
+                ---
+                [사용자에게 제공할 추가 질문 출력]
+                ```
+
+            
+            **기능 구현**
             기능을 구현하기 위해 아래 작업 순서를 반드시 따라야 해.
- 
-            **만약에 {description}이 파이썬 코드로 작성하기 어렵다면 "아니오"라고 대답한 후에 추가 설명을 적어줘.**
-            **만약에 {description}이 파이썬 코드로 작성할 수 있다면 "예"라고 대답해야 하고 아래의 작업순서와 요구사항대로 진행해줘.**
 
             작업 순서
             1️⃣ **프로젝트 폴더 구조 설계**
@@ -211,7 +230,7 @@ class CodeGenerator:
 
             📌 📢 중요한 출력 형식 요구 사항
             아래 출력 형식을 반드시 따라야 해.
-            출력 형식의 markdown 코드 블록을 반드시 따라야 해.
+            파일 단위의 markdown 코드 블록 출력 형식을 반드시 따라야 해!
             대괄호 안에 있는 변수를 각 출력으로 채워야 해.
             배포 작업 순서에 폴더를 구축하는 내용은 들어가면 안돼. 그 이후부터 작성해야 해.
             파일 이름에는 설명이 붙지 않아야 해.
@@ -219,14 +238,16 @@ class CodeGenerator:
             **출력 형식**            
             ```python
             # [파일 이름]
-
             [코드]
             ```
 
+            ```python
+            # [파일 이름]
+            [코드]
+            ```
 
             ```python
             # [파일 이름]
-
             [코드]
             ```
 
@@ -258,26 +279,3 @@ class CodeGenerator:
             structure=structure_text
             # rag_prompt=rag_prompt
         )
-
-    @staticmethod
-    def _split_response_content(response_content: str) -> (str, str):
-        """
-        응답 문자열에서 첫번째 markdown 코드 블록을 코드 부분으로 추출하고,
-        나머지 부분은 설명으로 취급하는 함수.
-        - 만약 markdown 코드 블록이 없으면, 전체 응답을 코드로 간주.
-        """
-        code_match = re.search(r"```(?:python)?\s*(.*?)\s*```", response_content, re.DOTALL)
-        if code_match:
-            code_part = code_match.group(1)
-            description_part = response_content.replace(code_match.group(0), "")
-            return code_part, description_part
-        return response_content, ""
-
-    @staticmethod
-    def _remove_markdown_code_blocks(code: str) -> str:
-        """
-        마크다운 코드 블록(예: ```python ... ```)을 제거하여 순수한 코드만 남기는 함수.
-        """
-        cleaned_code = re.sub(r"```(python)?\n?", "", code)
-        cleaned_code = re.sub(r"```\n?", "\n", cleaned_code)
-        return cleaned_code.strip()
