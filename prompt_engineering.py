@@ -10,7 +10,7 @@ from typing import Optional, List, Dict
 from langchain.prompts import PromptTemplate
 from langchain_google_genai import ChatGoogleGenerativeAI
 
-# from rag import RAGRetriever
+from rag_retriever import RAGRetriever
 
 # 환경 변수 로드 (예: API 키)
 load_dotenv()
@@ -58,14 +58,14 @@ class CodeGenerator:
         result = await CodeGenerator.generate_code(request)
         print(result)
 
-        code_text, readme_text = result.split("---")
+        readme_text, code_text = result.split("---")
         readme_text = readme_text.strip()
 
-        if '불가능' in code_text:
-            return "Sub_question", readme_text
+        if '불가능' in readme_text:
+            return "Sub_question", code_text
         
         # 원하는 폴더 경로 설정 (서버의 특정 폴더)
-        base_folder_path = "/root/docker/generate_projects"
+        base_folder_path = "root/generate_projects"
 
         folder_list = []
         
@@ -129,6 +129,7 @@ class CodeGenerator:
         """
         # 요청 정보를 바탕으로 프롬프트 생성
         prompt = cls._generate_prompt(request)
+        print(prompt)
         # LLM을 비동기적으로 호출 (동기 함수를 executor로 실행)
         response = await asyncio.get_event_loop().run_in_executor(
             None, lambda: llm.invoke(prompt)
@@ -143,40 +144,40 @@ class CodeGenerator:
         LangChain의 PromptTemplate을 사용하여 최적화된 프롬프트를 생성하는 함수.
         요청에 포함된 설명, 코드 스타일, 주석 포함 여부, 코드 구조 정보를 템플릿에 채워서 반환.
         """
-        # rag_prompt = RAGRetriever.search_similar_terms(request.description)
-
         message_history = ""
 
         for message_hist in request.message_history:
             content, sender, created_at = message_hist
-            message_history += sender + " : " + content + "\n"
+            message_history += sender[1] + " : " + content[1] + "\n\n"
         
-        message_history += request.new_message.role + " : " + request.new_message.content + "\n"
+        message_history += request.new_message.role + " : " + request.new_message.content + "\n\n"
 
-
+        rag_prompt = RAGRetriever.search_similar_terms(message_history, top_k=1, type='json')
 
         template = PromptTemplate(
-            input_variables=["message_history"],
+            input_variables=["message_history", "rag_prompt"],
             template="""
             너는 Python 코드 생성을 전문으로 하는 AI야.
             사용자 입력에 해당하는 기능을 구현해야 해.
+            모든 요구 사항을 반드시 수행해야 해.
 
-            사용자 입력:
+            
+            **사용자 입력**
             "{message_history}"
 
-            작업 가능 여부 판단
+            
+            **작업 가능 여부 판단**
             사용자 입력이 개발 기능을 구체적으로 설명하는 지 판단해서 답변해야 해. Case에 맞게 답변 양식을 정확히 따라야 해.
+
             Case 1️⃣ **기능을 구체적으로 설명하는 경우**
                 - 사용자 입력이 개발하고자 하는 명확한 기능을 포함하고 있어야 해.
                 - 직관적인 기능의 MVP를 개발 가능한 입력이여야 해.
-                - **답변 양식**
-                ```
-                [하단의 기능 구현 내용 출력]
-                ```
+                - 개발 가능 여부에 관한 출력 없이 바로 기능 구현 출력해야 해.
             Case 2️⃣ **기능울 구체적으로 설명하지 않는 경우**
                 - 사용자 입력만으로 개발하고자 하는 명확한 기능을 판단할 수 없어야 해.
                 - 기능을 개발하는 동안 사용자에게 추가 질문이 필요한 경우여야 해.
-                - 추가 질문은 3개 이내의 선택지 제공을 통해 진행해야해.
+                - 추가 질문은 3개 이내의 선택지 제공을 통해 진행해야 해.
+                - 3개의 선택지 아래에 '4. 추가 요구사항을 작성해주세요' 항목을 제공해야 해.
                 - **답변 양식**
                 ```
                 # 개발 불가능
@@ -212,12 +213,12 @@ class CodeGenerator:
             🛠️ 필수 요구 사항(정확성)
             모든 Python 코드는 문법 오류, 런타임 오류 없이 실행 가능해야 해.
             각 파일 별 코드가 독립적이며, 참조 및 import 오류가 발생하지 않도록 정확한 라이브러리 명칭과 코드 구성이 필요해.
-            작성된 코드가 실제 기능을 완벽히 수행하도록 검증된 코드를 생성할 것.
+            작성된 코드가 실제 기능을 완벽히 수행하도록 검증된 코드를 생성해야 해.
 
             🛠️ 필수 요구 사항(설계)
             사용자 입력에 배포 프레임워크가 특정되어 있지 않으면 **FastAPI**를 활용한 폴더 구조를 설계해야 해.
             사용자 입력에 DB 프레임워크가 특정되어 있지 않으면 **SQLite**를 활용한 DB를 설계해야 해. SQLAlchemy는 사용하면 안돼.
-            requirements.txt 작성 시 버전 충돌로 인한 오류(AssertionError)가 발생하지 않도록 정확하게 작성해야 해.
+            requirements.txt 작성 시 라이브러리의 버전을 작성하지 않아야 해.
             requirements.txt 미완성으로 인한 참조 오류(ImportError)가 발생하지 않도록 정확하게 작성해야 해.
             프로젝트 폴더 구조가 배포 과정을 전부 소화할 수 있도록 프로젝트 폴더 구조를 꼼꼼하고 명확하게 설계해야 해.
             전체 배포 과정이 터미널만 사용해서 이루어질 수 있도록 설계해야 해.
@@ -227,6 +228,7 @@ class CodeGenerator:
             Python 문법 오류(SyntaxError)가 없어야 해.
             실행 시 런타임 오류(RuntimeError)가 발생하지 않아야 해.
             각 파일 별 기능을 참조할 시 오류(ImportError, ModuleNotFoundError)가 발생하지 않아야 해.
+            복잡한 폴더 구조의 파일 기능을 참조할 시(예시: from 폴더.파일 import 기능) 오류(ImportError, ModuleNotFoundError)가 발생하지 않아야 해.
             정확한 라이브러리 명을 참조해서 오류(ImportError, ModuleNotFoundError)가 발생하지 않아야 해.
             클래스 매서드와 인스턴스 매서드의 차이를 명확히 인지하고 오류가 발생하지 않게 사용해야 해.
             코드의 논리는 정확해야 하며, 기능은 완벽히 작동해야 해.
@@ -238,33 +240,39 @@ class CodeGenerator:
             통신 과정에서의 입력, 출력 형식이 정확하게 정의되어서 오류가 발생하지 않아야 해. 예를 들어 CRUD 기능을 구현할 때 각각의 입력과 출력이 오류가 발생하지 않게 정의되어야 해.
             Pydantic Basemodel을 활용하여 배포 과정에서의 입력을 명확하게 표기해주어야 해.
 
+            
+            아래 예시 폴더 구조를 참고해서 배포 과정에서 오류가 없는 프로젝트 폴더 구조를 구축해야 해.
+
+            **예시 폴더 구조**
+
+            # FastAPI
+            
+            ```
+            app/
+            │── main.py              # FastAPI 앱 실행
+            │── requirements.txt     # 필요한 패키지 목록
+            │
+            ├── routers/             # 라우터(API 엔드포인트) 폴더
+            │   ├── users.py         # 사용자 관련 API
+            │   ├── items.py         # 아이템 관련 API
+            │
+            └── models/              # Pydantic 모델 정의 폴더
+                ├── user_model.py    # 사용자 데이터 모델
+                ├── item_model.py    # 아이템 데이터 모델
+            ```
+
+            
             📌 📢 중요한 출력 형식 요구 사항
             아래 출력 형식을 반드시 따라야 해.
-            파일 단위의 markdown 코드 블록 출력 형식을 반드시 따라야 해!
             대괄호 안에 있는 변수를 각 출력으로 채워야 해.
             배포 작업 순서에 폴더를 구축하는 내용은 들어가면 안돼. 그 이후부터 작성해야 해.
             파일 이름에는 설명이 붙지 않아야 해.
+            아래 출력 방식에 해당하는 것 이외에 어떠한 출력도 있으면 안돼.
+            중첩된 코드 블록을 절대 사용하면 안돼.
 
-            **출력 형식**            
-            ```python
-            # [파일 이름]
-            [코드]
-            ```
-
-            ```python
-            # [파일 이름]
-            [코드]
-            ```
-
-            ```python
-            # [파일 이름]
-            [코드]
-            ```
-
-            ---
-
+            **출력 형식**    
             # [프로젝트 이름]
-            [간략한 프로젝트 설명]
+            [Markdown 문법, 이모지를 활용한 3줄 이내의 프로젝트 설명]
 
             ## 폴더 구조
             [폴더 구조]
@@ -277,12 +285,27 @@ class CodeGenerator:
             ## 배포 작업 순서 설명
             1. [작업 설명]
             2. [작업 설명]
+            ...
+            n. [작업 설명]
+
+            ---
+
+            ```python
+            # [파일 경로]
+            [코드]
+            ```
+
+            ```python
+            # [파일 경로]
+            [코드]
+            ```
+
 
             🎯 코드 생성 요청: 이제 Python 코드와 설명을 생성해. 설명은 한국어로 작성해야 해.
             """
         )
         # 템플릿에 요청 정보를 채워 최종 프롬프트 생성
         return template.format(
-            message_history=message_history
-            # rag_prompt=rag_prompt
+            message_history=message_history,
+            rag_prompt=rag_prompt[0]
         )
