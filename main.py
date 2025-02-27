@@ -57,48 +57,12 @@ class RequestData(BaseModel):
 async def root():
     return {"message": "Welcome to the RAG System API"}
 
-# 스트리밍 응답을 위한 제너레이터 함수
-async def stream_response(request_data: RequestData):
-    query = request_data.new_message.content
-    request_type = request_data.type
-    room_name = request_data.room.name or "Unnamed Room"  # name이 None일 경우 기본값 설정
 
-    # # type에 따라 초기 메시지 설정
-    # if request_type == "makecode":
-    #     stages = ["처리중", "코드제작중", "파일화 완료"]
-    # elif request_type == "moreinfo":
-    #     stages = ["처리중", "정보수집중", "완료"]
-    # else:
-    #     yield f"data: Invalid type: {request_type}. Use 'makecode' or 'moreinfo'\n\n"
-    #     return
-
-    # # 5초 간격으로 스트리밍 메시지 전송
-    # for stage in stages:
-    #     yield f"data: {stage} - Room: {room_name}, Query: {query}\n\n"
-    #     await asyncio.sleep(5)
-
-    # 모델 Return값 전송
-    key, value = await CodeGenerator.run_code_generation(request_data)
-    logging.info(key, value)
-    print(key, value)
-    yield {key: value}
-    await asyncio.sleep(1)
-
-
-# RAG 시스템 요청 처리 엔드포인트 (스트리밍 형태)
-@app.post("/generate-code/")
-async def process_test_request(data: RequestData):
-    return StreamingResponse(
-        stream_response(data),
-        media_type="text/event-stream"
-    )
-
-
-# @app.post("/generate-code")
-# async def generate_code_api(data: RequestData):
-#     """LangChain 기반 비동기 코드 생성 API"""
-#     try:
-#         key, value = await CodeGenerator.run_code_generation(data)
-#         return {key: value}
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=str(e))
+@app.post("/generate-code")
+async def generate_code_api(data: RequestData):
+    """LangChain 기반 비동기 코드 생성 API"""
+    try:
+        key, value = await CodeGenerator.run_code_generation(data)
+        return {key: value}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
