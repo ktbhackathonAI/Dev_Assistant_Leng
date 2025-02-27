@@ -62,6 +62,8 @@ class CodeGenerator:
         
         # 원하는 폴더 경로 설정 (서버의 특정 폴더)
         base_folder_path = "/root/docker/generate_projects"
+
+        folder_list = []
         
         # 폴더가 존재하지 않으면 생성
         if not os.path.exists(base_folder_path):
@@ -96,6 +98,7 @@ class CodeGenerator:
             if directory and not os.path.exists(directory):
                 os.makedirs(directory, exist_ok=True)
                 
+            folder_list.append(code_save_path)
             # 생성된 Python 코드를 지정된 폴더에 "generated_code.py" 파일로 저장
             with open(code_save_path, "w", encoding="utf-8") as py_file:
                 py_file.write(content)
@@ -107,8 +110,9 @@ class CodeGenerator:
         # 생성된 설명 메시지를 지정된 폴더에 md 형식으로 저장
         with open(readme_save_path, "w", encoding="utf-8") as md_file:
             md_file.write(readme_text)
+        folder_list.append(readme_save_path)
 
-        return "project_path", project_folder_path
+        return "project_folder_list", folder_list
 
     @classmethod
     async def generate_code(cls, request: CodeRequest, model: str = "gemini-1.5-flash") -> dict:
