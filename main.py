@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from typing import Optional, List, Dict
 from fastapi.responses import StreamingResponse
 import asyncio
-from prompt_engineering import CodeGenerator, CodeRequest
+from prompt_engineering import CodeGenerator
 
 
 app = FastAPI(
@@ -79,14 +79,17 @@ async def stream_response(request_data: RequestData):
 
     # 모델 Return값 전송
     key, value = await CodeGenerator.run_code_generation(request_data)
-    return {key: value}
+    logging.info(key, value)
+    print(key, value)
+    yield {key: value}
+    await asyncio.sleep(1)
 
 
 # RAG 시스템 요청 처리 엔드포인트 (스트리밍 형태)
 @app.post("/generate-code/")
 async def process_test_request(data: RequestData):
     return StreamingResponse(
-        responce = stream_response(data),
+        stream_response(data),
         media_type="text/event-stream"
     )
 

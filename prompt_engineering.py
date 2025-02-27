@@ -22,24 +22,6 @@ logging.basicConfig(level=logging.ERROR)
 # LangChain LLM (Gemini 모델) 초기화
 llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", google_api_key=GEMINI_API_KEY, temperature=0.3)
 
-# 코드 스타일 옵션 정의 (PEP8, Google, NoneStyle)
-class CodeStyle(str, Enum):
-    PEP8 = "PEP8"
-    Google = "Google"
-    NoneStyle = "None"
-
-# 코드 구조 옵션 정의 (함수형, 클래스형)
-class CodeStructure(str, Enum):
-    Functional = "functional"
-    ClassBased = "class-based"
-
-# 코드 요청 정보를 담는 데이터 모델 (Pydantic 사용)
-class CodeRequest(BaseModel):
-    description: str             # 생성할 코드에 대한 설명
-    style: CodeStyle = CodeStyle.PEP8         # 코드 스타일 (기본값: PEP8)
-    include_comments: bool = True             # 주석 포함 여부 (기본값: True)
-    structure: CodeStructure = CodeStructure.Functional  # 코드 구조 (기본값: 함수형)
-
 # 요청 데이터 모델 정의
 class Room(BaseModel):
     id: int
