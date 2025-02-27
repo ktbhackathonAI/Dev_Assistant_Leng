@@ -1,6 +1,8 @@
 import os
+import json
 import logging
 
+from langchain.schema import Document
 from langchain_community.vectorstores import FAISS
 from sentence_transformers import SentenceTransformer
 from langchain.text_splitter import CharacterTextSplitter
@@ -25,31 +27,36 @@ class SentenceTransformerWrapper:
 class RAGRetriever:
     """벡터 스토어에서 유사한 개발 용어를 검색하는 RAG 기능"""
     
-    vector_store_path = "./vector_store/faiss"
+    pdf_vector_store_path = "./vector_store/faiss_pdf"
     pdf_path = "./vector_store/vector_store_pdf.pdf"
+    json_vector_store_path = "./vector_store/faiss_json"
+    json_path = "./vector_store/framework_folder_structures.json"
     embedding_model = SentenceTransformerWrapper("intfloat/multilingual-e5-large")
     vector_store = None  # 벡터 스토어 저장
     index = None  # 벡터 인덱스 저장
 
     @classmethod
-    def search_similar_terms(cls, query: str, top_k: int = 3):
+    def search_similar_terms(cls, query: str, top_k: int = 3, type: str = 'pdf'):
         """쿼리와 가장 유사한 개발 용어 검색"""
         if cls.vector_store is None:
             logging.info("벡터 스토어 검색중..")
-        cls._load_vector_store()
+        if type == 'pdf':
+            cls._load_vector_store_pdf()
+        elif type == 'json':
+            cls._load_vector_store_json()
         results = cls.vector_store.similarity_search(query, k=top_k)
         return [res.page_content for res in results]
     
     @classmethod
-    def _load_vector_store(cls):
+    def _load_vector_store_pdf(cls):
         """벡터 스토어 로드"""
-        if os.path.exists(cls.vector_store_path):
-            cls.vector_store = FAISS.load_local(cls.vector_store_path, cls.embedding_model.embed_query, allow_dangerous_deserialization=True)
+        if os.path.exists(cls.pdf_vector_store_path):
+            cls.vector_store = FAISS.load_local(cls.pdf_vector_store_path, cls.embedding_model.embed_query, allow_dangerous_deserialization=True)
             cls.index = cls.vector_store.index
             logging.info("✅ 벡터 스토어 로드 완료")
         elif os.path.exists(cls.pdf_path):
             logging.error("⚠ 사전 구축된 벡터 스토어를 찾을 수 없습니다. 신규 벡터 스토어를 구축합니다.")
-            docs = cls._build_docs()
+            docs = cls._build_docs_pdf()
 
             texts = [doc.page_content for doc in docs]
             embeddings = cls.embedding_model.embed_documents(texts)
@@ -61,14 +68,14 @@ class RAGRetriever:
                 embedding=cls.embedding_model.embed_query
             )
 
-            cls.vector_store.save_local(cls.vector_store_path)
+            cls.vector_store.save_local(cls.pdf_vector_store_path)
         else:
             logging.error("❌ PDF를 찾을 수 없습니다. 개발 용어 PDF가 필요합니다.")
             raise FileNotFoundError("Vector store not found. Ensure it is pre-built.")
 
 
     @classmethod
-    def _build_docs(cls):
+    def _build_docs_pdf(cls):
         loader = PyPDFLoader(cls.pdf_path)
         pages = loader.load_and_split()
 
@@ -89,15 +96,38 @@ class RAGRetriever:
 
         return docs
 
+   
+    @classmethod
+    def _load_vector_store_json(cls):
+        """벡터 스토어 로드"""
+        if os.path.exists(cls.json_vector_store_path):
+            cls.vector_store = FAISS.load_local(cls.json_vector_store_path, cls.embedding_model.embed_query, allow_dangerous_deserialization=True)
+            cls.index = cls.vector_store.index
+            logging.info("✅ 벡터 스토어 로드 완료")
+        elif os.path.exists(cls.json_path):
+            logging.error("⚠ 사전 구축된 벡터 스토어를 찾을 수 없습니다. 신규 벡터 스토어를 구축합니다.")
+            docs = cls._build_docs_json()
 
-# # 예제 실행
-if __name__ == "__main__":
-    print("✅ 스크립트 실행 시작")
+            # 4️⃣ FAISS Vector Store에 저장
+            vector_store = FAISS.from_documents(docs, cls.embedding_model)
 
-    logging.basicConfig(level=logging.INFO)  # 로그 설정 (터미널 출력)
-    
-    retriever = RAGRetriever()  # RAG 검색기 인스턴스 생성
-    example_query = "게시판 CRUD 프로그램 만들어줘"  # 검색할 문장
-    similar_terms = retriever.search_similar_terms(example_query)  # 검색 실행
-    
-    print(f"\n🔍 검색 결과:\n{similar_terms}\n")  # 검색 결과 출력
+            # 5️⃣ FAISS Vector Store 저장 (필요 시)
+            vector_store.save_local(cls.json_vector_store_path)
+        else:
+            logging.error("❌ PDF를 찾을 수 없습니다. 개발 용어 PDF가 필요합니다.")
+            raise FileNotFoundError("Vector store not found. Ensure it is pre-built.")
+
+
+    @classmethod
+    def _build_docs_json(cls):
+        with open(cls.json_path, "r", encoding="utf-8") as f:
+            framework_data = json.load(f)
+
+        docs = []
+        for item in framework_data:
+            framework_name = item["framework"]
+            folder_structure = json.dumps(item["folder_structure"], indent=4, ensure_ascii=False)
+            text = f"Framework: {framework_name}\nFolder Structure:\n{folder_structure}"
+            docs.append(Document(page_content=text, metadata={"framework": framework_name}))
+
+        return docs
