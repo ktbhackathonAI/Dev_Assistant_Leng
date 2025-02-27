@@ -152,7 +152,7 @@ class CodeGenerator:
         
         message_history += request.new_message.role + " : " + request.new_message.content + "\n\n"
 
-        rag_prompt = RAGRetriever.search_similar_terms(message_history)
+        framework, folder_structure = RAGRetriever.search_similar_terms(message_history)
 
         template = PromptTemplate(
             input_variables=["message_history", "rag_prompt"],
@@ -245,10 +245,10 @@ class CodeGenerator:
 
             **예시 폴더 구조**
 
-            # FastAPI
+            # {framework}
             
             ```
-            {rag_prompt}
+            {folder_structure}
             ```
 
             
@@ -297,5 +297,6 @@ class CodeGenerator:
         # 템플릿에 요청 정보를 채워 최종 프롬프트 생성
         return template.format(
             message_history=message_history,
-            rag_prompt=rag_prompt
+            framework=framework,
+            folder_structure=folder_structure
         )

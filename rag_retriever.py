@@ -46,4 +46,4 @@ class RAGRetriever:
 
         folder_structure = "\n".join(cls.json_data[best_framework]['structure'])
 
-        return folder_structure
+        return best_framework, folder_structure
