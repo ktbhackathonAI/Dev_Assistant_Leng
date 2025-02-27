@@ -6,6 +6,7 @@ import asyncio
 from enum import Enum
 from dotenv import load_dotenv
 from pydantic import BaseModel
+from typing import Optional, List, Dict
 from langchain.prompts import PromptTemplate
 from langchain_google_genai import ChatGoogleGenerativeAI
 
@@ -39,16 +40,37 @@ class CodeRequest(BaseModel):
     include_comments: bool = True             # 주석 포함 여부 (기본값: True)
     structure: CodeStructure = CodeStructure.Functional  # 코드 구조 (기본값: 함수형)
 
+# 요청 데이터 모델 정의
+class Room(BaseModel):
+    id: int
+    name: Optional[str] = None  # None 허용하도록 수정
+    created_at: Optional[str] = None
+
+class MessageHistory(BaseModel):  # 메시지 히스토리용 새로운 모델
+    content: str
+    sender: str
+    created_at: str
+
+class Message(BaseModel):
+    content: str
+    role: str
+
+class RequestData(BaseModel):
+    room: Room
+    message_history: List[MessageHistory]  # 새로운 모델로 변경
+    new_message: Message
+    type: Optional[str] = "makecode"
+
 # 코드 생성기를 담당하는 클래스
 class CodeGenerator:
     """Python 코드 생성기 (RAG 미적용)"""
 
     @classmethod
     # 비동기 함수: 코드 생성 실행 및 결과 파일 저장
-    async def run_code_generation(cls, request: CodeRequest):
+    async def run_code_generation(cls, request: RequestData):
         """
         코드 생성 요청을 실행하고,
-        생성된 Python 코드를 파일과 JSON 형식의 설명 파일로 저장하며 출력하는 함수.
+        생성된 Python 코드를 파일과 MD 형식의 설명 파일로 저장하며 출력하는 함수.
         """
         # 비동기적으로 코드 생성 수행
         result = await CodeGenerator.generate_code(request)
@@ -115,7 +137,7 @@ class CodeGenerator:
         return "project_folder_list", folder_list
 
     @classmethod
-    async def generate_code(cls, request: CodeRequest, model: str = "gemini-1.5-flash") -> dict:
+    async def generate_code(cls, request: RequestData, model: str = "gemini-1.5-flash") -> dict:
         """
         비동기 방식으로 Gemini API를 호출하여 코드를 생성하는 함수.
         1. 요청 정보를 바탕으로 프롬프트 생성
@@ -134,24 +156,31 @@ class CodeGenerator:
         return full_response
 
     @classmethod
-    def _generate_prompt(cls, request: CodeRequest) -> str:
+    def _generate_prompt(cls, request: RequestData) -> str:
         """
         LangChain의 PromptTemplate을 사용하여 최적화된 프롬프트를 생성하는 함수.
         요청에 포함된 설명, 코드 스타일, 주석 포함 여부, 코드 구조 정보를 템플릿에 채워서 반환.
         """
-        include_comments_text = "포함" if request.include_comments else "제외"
-        structure_text = "함수형" if request.structure == CodeStructure.Functional else "클래스형"
-
         # rag_prompt = RAGRetriever.search_similar_terms(request.description)
 
+        message_history = ""
+
+        for message_hist in request.message_history:
+            content, sender, created_at = message_hist
+            message_history += sender + " : " + content + "\n"
+        
+        message_history += request.new_message.role + " : " + request.new_message.content + "\n"
+
+
+
         template = PromptTemplate(
-            input_variables=["description", "style", "include_comments", "structure"],
+            input_variables=["message_history"],
             template="""
             너는 Python 코드 생성을 전문으로 하는 AI야.
             사용자 입력에 해당하는 기능을 구현해야 해.
 
             사용자 입력:
-            "{description}"
+            "{message_history}"
 
             작업 가능 여부 판단
             사용자 입력이 개발 기능을 구체적으로 설명하는 지 판단해서 답변해야 해. Case에 맞게 답변 양식을 정확히 따라야 해.
@@ -212,6 +241,7 @@ class CodeGenerator:
             전체 배포 과정이 터미널만 사용해서 이루어질 수 있도록 설계해야 해.
             
             🛠️ 필수 요구 사항(코드)
+            PEP8 스타일로 작성해야 해.
             Python 문법 오류(SyntaxError)가 없어야 해.
             실행 시 런타임 오류(RuntimeError)가 발생하지 않아야 해.
             각 파일 별 기능을 참조할 시 오류(ImportError, ModuleNotFoundError)가 발생하지 않아야 해.
@@ -225,12 +255,6 @@ class CodeGenerator:
             비동기 함수 사용 시 통신 과정에서 오류가 발생하지 않아야 해.
             통신 과정에서의 입력, 출력 형식이 정확하게 정의되어서 오류가 발생하지 않아야 해. 예를 들어 CRUD 기능을 구현할 때 각각의 입력과 출력이 오류가 발생하지 않게 정의되어야 해.
             Pydantic Basemodel을 활용하여 배포 과정에서의 입력을 명확하게 표기해주어야 해.
-
-
-            🎨 코드 스타일 & 구조
-            코드 스타일: {style}
-            주석 포함 여부: {include_comments}
-            코드 구조: {structure}
 
             📌 📢 중요한 출력 형식 요구 사항
             아래 출력 형식을 반드시 따라야 해.
@@ -277,9 +301,6 @@ class CodeGenerator:
         )
         # 템플릿에 요청 정보를 채워 최종 프롬프트 생성
         return template.format(
-            description=request.description,
-            style=request.style.value,
-            include_comments=include_comments_text,
-            structure=structure_text
+            message_history=message_history
             # rag_prompt=rag_prompt
         )
