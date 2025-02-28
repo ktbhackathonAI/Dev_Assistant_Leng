@@ -30,14 +30,8 @@ class RAGRetriever:
                 "app/",
                 "│── main.py              # FastAPI 앱 실행",
                 "│── requirements.txt     # 필요한 패키지 목록",
-                "│",
-                "├── routers/             # 라우터(API 엔드포인트) 폴더",
-                "│   ├── users.py         # 사용자 관련 API",
-                "│   ├── items.py         # 아이템 관련 API",
-                "│",
-                "└── models/              # Pydantic 모델 정의 폴더",
-                "    ├── user_model.py    # 사용자 데이터 모델",
-                "    ├── item_model.py    # 아이템 데이터 모델"
+                "│── routers.py           # 사용자 관련 API",
+                "└── models.py            # 사용자 데이터 모델"
             ]
         },
         "Django": {
