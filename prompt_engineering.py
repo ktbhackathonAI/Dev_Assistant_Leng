@@ -65,7 +65,7 @@ class CodeGenerator:
             return "Sub_question", code_text
         
         # 원하는 폴더 경로 설정 (서버의 특정 폴더)
-        base_folder_path = "root/generate_projects"
+        base_folder_path = "/root/docker/generate_projects"
 
         folder_list = []
         
